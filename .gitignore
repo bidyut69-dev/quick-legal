@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Environment files — KABHI PUSH MAT KARO
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Misc
+.DS_Store
+*.log

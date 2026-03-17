@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #08080f;
+    color: #c0c0d0;
+  }
+}
+
+@layer components {
+  .card-cyber {
+    @apply bg-cyber-dark border border-cyber-border rounded-xl;
+  }
+}
