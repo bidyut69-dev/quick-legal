@@ -20,8 +20,8 @@
           "value": "strict-origin-when-cross-origin"
         },
         {
-          "key": "Permissions-Policy",
-          "value": "geolocation=(), camera=(), microphone=()"
+           "key": "Permissions-Policy",
+           "value": "geolocation=(), microphone=(), camera=()"
         },
         {
           "key": "X-XSS-Protection",
