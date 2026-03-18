@@ -140,22 +140,59 @@ export default function QuickLegal() {
       return;
     }
     setLoading(true); setError(null); setResult(null);
+
+    // ── Step 1: Backend wake-up ping ──────────────────────────────────────
+    // Render free tier 15 min baad so jaata hai — pehle ping karke jagaate hain
     try {
-      const res = await fetch(`${API_URL}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Server error. Dobara try karo.");
-      }
-      setResult(await res.json());
-    } catch (e) {
-      setError(e.message || "Network error. Backend chal raha hai?");
-    } finally {
-      setLoading(false);
+      await fetch(`${API_URL}/`, { method: "GET" });
+    } catch (_) {
+      // Ping fail bhi ho toh chalta hai — main request try karenge
     }
+
+    // ── Step 2: Auto-retry (max 3 attempts) ──────────────────────────────
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 3000; // 3 seconds between retries
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Loading message update karo attempt ke hisaab se
+        if (attempt === 1) setError(null);
+        if (attempt === 2) setError("Backend warm ho raha hai... (attempt 2/3)");
+        if (attempt === 3) setError("Last try kar rahe hain... (attempt 3/3)");
+
+        const res = await fetch(`${API_URL}/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+          signal: AbortSignal.timeout(60000), // 60 second timeout
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "Server error. Dobara try karo.");
+        }
+
+        const data = await res.json();
+        setError(null);
+        setResult(data);
+        setLoading(false);
+        return; // Success! Loop band karo
+
+      } catch (e) {
+        // Agar last attempt bhi fail toh error dikhao
+        if (attempt === MAX_RETRIES) {
+          setError(e.message?.includes("timeout") || e.name === "TimeoutError"
+            ? "Backend respond nahi kar raha. Thodi der baad try karo."
+            : e.message || "Network error. Backend chal raha hai?"
+          );
+          setLoading(false);
+          return;
+        }
+        // Retry se pehle wait karo
+        await new Promise(r => setTimeout(r, RETRY_DELAY));
+      }
+    }
+    setLoading(false);
   }
 
   function reset() { setText(""); setResult(null); setError(null); }
@@ -252,11 +289,21 @@ export default function QuickLegal() {
               </div>
             </div>
 
-            {/* Error */}
+            {/* Error / Retry status */}
             {error && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", marginTop: 12 }}>
-                <AlertTriangle size={13} color="#ef4444"/>
-                <span style={{ fontFamily: "monospace", fontSize: 12, color: "#ef4444" }}>{error}</span>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "10px 14px", borderRadius: 8, marginTop: 12,
+                background: error.includes("attempt") || error.includes("warm")
+                  ? "rgba(234,179,8,0.1)" : "rgba(239,68,68,0.1)",
+                border: `1px solid ${error.includes("attempt") || error.includes("warm")
+                  ? "rgba(234,179,8,0.25)" : "rgba(239,68,68,0.25)"}`,
+              }}>
+                <AlertTriangle size={13} color={error.includes("attempt") || error.includes("warm") ? "#eab308" : "#ef4444"}/>
+                <span style={{
+                  fontFamily: "monospace", fontSize: 12,
+                  color: error.includes("attempt") || error.includes("warm") ? "#eab308" : "#ef4444"
+                }}>{error}</span>
               </div>
             )}
 
@@ -273,7 +320,7 @@ export default function QuickLegal() {
               }}
             >
               {loading ? (
-                <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }}/> AI analyze kar raha hai...</>
+                <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }}/> AI analyze kar raha hai... (60s tak lag sakte hain)</>
               ) : (
                 <><Shield size={16}/> Analyze Karo</>
               )}
